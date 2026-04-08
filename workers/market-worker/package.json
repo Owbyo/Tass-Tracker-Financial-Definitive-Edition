@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx src/index.ts",
+    "prebuild": "npm --prefix ../.. run db:generate",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit",
     "job:quotes": "tsx src/index.ts quotes-refresh",
@@ -17,6 +18,7 @@
     "@tass/domain": "0.1.0"
   },
   "devDependencies": {
+    "@types/node": "^22.15.2",
     "tsx": "^4.19.3",
     "typescript": "^5.8.3"
   }
