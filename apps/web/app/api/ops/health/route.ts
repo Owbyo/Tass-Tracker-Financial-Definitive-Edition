@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getOpsSummary } from "../../../lib/data";
+import { getOpsSummary } from "@/lib/data";
 
 export async function GET() {
   const summary = await getOpsSummary();
