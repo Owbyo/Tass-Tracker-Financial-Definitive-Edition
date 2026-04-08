@@ -1,6 +1,6 @@
-import { WatchlistControls } from "../components/watchlist-controls";
-import { StockSearch } from "../components/stock-search";
-import { getWatchlistRows } from "../lib/data";
+import { WatchlistControls } from "@/components/watchlist-controls";
+import { StockSearch } from "@/components/stock-search";
+import { getWatchlistRows } from "@/lib/data";
 
 export default async function HomePage() {
   const rows = await getWatchlistRows();

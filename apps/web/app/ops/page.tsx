@@ -1,4 +1,4 @@
-import { getOpsSummary } from "../../lib/data";
+import { getOpsSummary } from "@/lib/data";
 
 export default async function OpsPage() {
   const ops = await getOpsSummary();
