@@ -5,3 +5,6 @@ dist
 .env.*
 coverage
 *.log
+*.tsbuildinfo
+packages/*/src/*.js
+package-lock.json
