@@ -1,4 +1,18 @@
-import { prisma } from "@tass/db";
+import { prisma, type Prisma } from "@tass/db";
+
+type WatchlistItemWithRelations = Prisma.WatchlistItemGetPayload<{
+  include: {
+    symbol: {
+      include: {
+        quoteLatest: true;
+        analyses: {
+          orderBy: { snapshotAt: "desc" };
+          take: 1;
+        };
+      };
+    };
+  };
+}>;
 
 function minutesFrom(date: Date | null): number | null {
   if (!date) return null;
@@ -23,7 +37,7 @@ export async function getWatchlistRows() {
     },
   });
 
-  return items.map((item) => {
+  return items.map((item: WatchlistItemWithRelations) => {
     const latestAnalysis = item.symbol.analyses[0];
     const quoteAsOf = item.symbol.quoteLatest?.asOf ?? null;
 

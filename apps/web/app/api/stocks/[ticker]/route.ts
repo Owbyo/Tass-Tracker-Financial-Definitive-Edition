@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getStockDetail } from "../../../../lib/data";
+import { getStockDetail } from "@/lib/data";
 
 export async function GET(_: Request, context: { params: Promise<{ ticker: string }> }) {
   const { ticker } = await context.params;
