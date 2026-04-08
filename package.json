@@ -1,0 +1,18 @@
+{
+  "name": "tass-tracker-financial",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "workers/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run --workspaces --if-present build",
+    "dev": "npm run -w apps/web dev",
+    "dev:worker": "npm run -w workers/market-worker dev",
+    "db:generate": "npm run -w packages/db db:generate",
+    "db:migrate": "npm run -w packages/db db:migrate",
+    "typecheck": "npm run --workspaces --if-present typecheck",
+    "test": "npm run --workspaces --if-present test"
+  }
+}

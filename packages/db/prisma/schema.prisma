@@ -1,0 +1,215 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UniverseType {
+  CORE
+  DISCOVERY
+  MARKET
+}
+
+enum TassCategory {
+  WEAK
+  FAIR
+  GOOD
+  STRONG
+  ELITE
+}
+
+enum EntryWindow {
+  NO_ENTRY
+  WATCH
+  VALID_ENTRY
+  STRONG_ENTRY
+}
+
+enum ExitWindow {
+  HOLD
+  PROFIT_WATCH
+  RISK_ZONE
+  EXIT_SIGNAL
+}
+
+enum DataStatus {
+  OK
+  INSUFFICIENT_DATA
+}
+
+enum MarketRegime {
+  RISK_ON
+  NEUTRAL
+  RISK_OFF
+}
+
+enum JobStatus {
+  RUNNING
+  SUCCESS
+  FAILED
+  PARTIAL
+}
+
+enum JobTriggerType {
+  SCHEDULED
+  MANUAL
+  RETRY
+}
+
+model Symbol {
+  id          String           @id @default(uuid())
+  ticker      String           @unique
+  name        String
+  exchange    String?
+  assetType   String           @default("EQUITY")
+  sector      String?
+  industry    String?
+  isActive    Boolean          @default(true)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  universes   SymbolUniverse[]
+  quoteLatest QuoteLatest?
+  analyses    StockAnalysisSnapshot[]
+  watchlist   WatchlistItem?
+  dailyBars   DailyBar[]
+  sectorEtfMap SymbolSectorEtfMap[] @relation("SymbolToSectorMap")
+  sectorEtfAsEtf SymbolSectorEtfMap[] @relation("EtfToSectorMap")
+}
+
+model SymbolUniverse {
+  id        String       @id @default(uuid())
+  symbolId  String
+  universe  UniverseType
+  isActive  Boolean      @default(true)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  symbol    Symbol       @relation(fields: [symbolId], references: [id], onDelete: Cascade)
+
+  @@unique([symbolId, universe])
+}
+
+model DailyBar {
+  id         String   @id @default(uuid())
+  symbolId   String
+  sessionDate DateTime @db.Date
+  open       Decimal  @db.Decimal(18, 6)
+  high       Decimal  @db.Decimal(18, 6)
+  low        Decimal  @db.Decimal(18, 6)
+  close      Decimal  @db.Decimal(18, 6)
+  volume     BigInt?
+  source     String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  symbol     Symbol   @relation(fields: [symbolId], references: [id], onDelete: Cascade)
+
+  @@unique([symbolId, sessionDate])
+  @@index([symbolId, sessionDate(sort: Desc)])
+}
+
+model SymbolSectorEtfMap {
+  id            String   @id @default(uuid())
+  symbolId      String
+  sectorEtfSymbolId String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  symbol        Symbol   @relation("SymbolToSectorMap", fields: [symbolId], references: [id], onDelete: Cascade)
+  sectorEtfSymbol Symbol @relation("EtfToSectorMap", fields: [sectorEtfSymbolId], references: [id], onDelete: Cascade)
+
+  @@unique([symbolId])
+}
+
+model QuoteLatest {
+  symbolId      String   @id
+  price         Decimal  @db.Decimal(18, 6)
+  changeAbs     Decimal? @db.Decimal(18, 6)
+  changePct     Decimal? @db.Decimal(9, 4)
+  volume        BigInt?
+  avgVolume20d  BigInt?
+  sessionDate   DateTime @db.Date
+  asOf          DateTime
+  source        String
+  symbol        Symbol   @relation(fields: [symbolId], references: [id], onDelete: Cascade)
+
+  @@index([asOf])
+  @@index([changePct])
+}
+
+model StockAnalysisSnapshot {
+  id                    String       @id @default(uuid())
+  symbolId              String
+  snapshotAt            DateTime
+  sessionDate           DateTime     @db.Date
+  formulaVersion        String
+  dataStatus            DataStatus
+  isPlaceholder         Boolean      @default(false)
+  tassScore             Decimal?     @db.Decimal(5, 2)
+  tassCategory          TassCategory?
+  entryScore            Decimal?     @db.Decimal(5, 2)
+  entryWindow           EntryWindow?
+  exitScore             Decimal?     @db.Decimal(5, 2)
+  exitWindow            ExitWindow?
+  momentumScore         Decimal?     @db.Decimal(5, 2)
+  structureScore        Decimal?     @db.Decimal(5, 2)
+  relativeStrengthScore Decimal?     @db.Decimal(5, 2)
+  stabilityScore        Decimal?     @db.Decimal(5, 2)
+  factorScoresJson      Json?
+  hardInvalidationsJson Json?
+  explanationJson       Json
+  signalsJson           Json?
+  symbol                Symbol       @relation(fields: [symbolId], references: [id], onDelete: Cascade)
+
+  @@index([symbolId, snapshotAt(sort: Desc)])
+  @@index([sessionDate, tassScore(sort: Desc)])
+}
+
+model MarketSnapshot {
+  id          String       @id @default(uuid())
+  snapshotAt  DateTime
+  regime      MarketRegime
+  score       Decimal?     @db.Decimal(5, 2)
+  createdAt   DateTime     @default(now())
+
+  @@index([snapshotAt(sort: Desc)])
+}
+
+model SectorSnapshot {
+  id          String   @id @default(uuid())
+  snapshotAt  DateTime
+  sectorEtfTicker String
+  sectorScore Decimal  @db.Decimal(5, 2)
+  createdAt   DateTime @default(now())
+
+  @@index([sectorEtfTicker, snapshotAt(sort: Desc)])
+}
+
+model WatchlistItem {
+  id            String   @id @default(uuid())
+  symbolId      String   @unique
+  positionOrder Int
+  note          String?
+  isActive      Boolean  @default(true)
+  addedAt       DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  symbol        Symbol   @relation(fields: [symbolId], references: [id], onDelete: Cascade)
+}
+
+model JobRun {
+  id             String         @id @default(uuid())
+  jobName        String
+  triggerType    JobTriggerType
+  status         JobStatus
+  startedAt      DateTime
+  endedAt        DateTime?
+  durationMs     Int?
+  recordsRead    Int            @default(0)
+  recordsWritten Int            @default(0)
+  errorCount     Int            @default(0)
+  errorSummary   String?
+  metadataJson   Json?
+
+  @@index([jobName, startedAt(sort: Desc)])
+  @@index([status, startedAt(sort: Desc)])
+}
