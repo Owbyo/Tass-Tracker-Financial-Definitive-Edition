@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
 import { getStockDetail } from "@/lib/data";
 
+export const dynamic = "force-dynamic";
+
 type StockAnalysis = NonNullable<Awaited<ReturnType<typeof getStockDetail>>>["analyses"][number];
 
 export default async function StockDetailPage({ params }: { params: Promise<{ ticker: string }> }) {
