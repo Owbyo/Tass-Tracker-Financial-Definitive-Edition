@@ -1,7 +1,7 @@
-import { getOpsSummary } from "../../lib/data";
+import { getOpsSummary, type OpsSummary } from "../../lib/data";
 
 export default async function OpsPage() {
-  const ops = await getOpsSummary();
+  const ops: OpsSummary = await getOpsSummary();
 
   return (
     <main>
@@ -15,7 +15,7 @@ export default async function OpsPage() {
       <table cellPadding={6}>
         <thead><tr><th>Job</th><th>Status</th><th>Start</th><th>End</th><th>Read</th><th>Written</th></tr></thead>
         <tbody>
-          {ops.jobRuns.map((run) => (
+          {ops.jobRuns.map((run: OpsSummary["jobRuns"][number]) => (
             <tr key={run.id}>
               <td>{run.jobName}</td>
               <td>{run.status}</td>

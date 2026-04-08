@@ -1,9 +1,9 @@
 import { notFound } from "next/navigation";
-import { getStockDetail } from "../../../lib/data";
+import { getStockDetail, type StockDetail } from "../../../lib/data";
 
 export default async function StockDetailPage({ params }: { params: Promise<{ ticker: string }> }) {
   const { ticker } = await params;
-  const symbol = await getStockDetail(ticker);
+  const symbol: StockDetail | null = await getStockDetail(ticker);
 
   if (!symbol) {
     notFound();
@@ -35,7 +35,7 @@ export default async function StockDetailPage({ params }: { params: Promise<{ ti
       <table cellPadding={6}>
         <thead><tr><th>Snapshot</th><th>Formula</th><th>Score</th><th>Entry</th><th>Exit</th></tr></thead>
         <tbody>
-          {symbol.analyses.map((a) => (
+          {symbol.analyses.map((a: StockDetail["analyses"][number]) => (
             <tr key={a.id}>
               <td>{a.snapshotAt.toISOString()}</td>
               <td>{a.formulaVersion}</td>
