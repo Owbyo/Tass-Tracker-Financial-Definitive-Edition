@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { type ChangeEvent, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 export function WatchlistControls() {
@@ -37,7 +37,7 @@ export function WatchlistControls() {
     <section style={{ marginBottom: "1rem", display: "flex", gap: "0.5rem", alignItems: "center" }}>
       <input
         value={ticker}
-        onChange={(e) => setTicker(e.target.value)}
+        onChange={(e: ChangeEvent<HTMLInputElement>) => setTicker(e.target.value)}
         placeholder="Ticker (ej: AAPL)"
         style={{ padding: "0.4rem", minWidth: 220 }}
       />
