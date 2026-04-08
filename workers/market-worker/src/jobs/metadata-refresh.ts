@@ -1,4 +1,5 @@
 import { prisma } from "@tass/db";
+import { EodhdMetadataProvider } from "../providers/eodhd";
 import type { MetadataProvider } from "../providers/contracts";
 
 const MAX_METADATA_ROWS = 5000;
@@ -28,37 +29,53 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: str
 }
 
 export async function metadataRefreshJob(metadataProvider: MetadataProvider) {
-  console.log(`[metadata-refresh] start provider=${metadataProvider.name} timeoutMs=${METADATA_PROVIDER_TIMEOUT_MS}`);
+  const providerToUse = metadataProvider.name === "sec" ? new EodhdMetadataProvider() : metadataProvider;
+  console.log(
+    `[metadata-refresh] start provider=${providerToUse.name} requestedProvider=${metadataProvider.name} timeoutMs=${METADATA_PROVIDER_TIMEOUT_MS}`,
+  );
   const localSymbols = await prisma.symbol.findMany({
     where: {
       isActive: true,
-      watchlist: { is: { isActive: true } },
     },
     select: { ticker: true },
     orderBy: { ticker: "asc" },
   });
 
-  const localTickers = localSymbols.map((symbol) => symbol.ticker);
-  console.log(`[metadata-refresh] local watchlist symbols=${localTickers.length}`);
-  console.log(`[metadata-refresh] calling provider.fetchMetadata provider=${metadataProvider.name}`);
+  const localTickers = [...new Set(localSymbols.map((symbol) => symbol.ticker.trim().toUpperCase()).filter(Boolean))];
+  console.log(`[metadata-refresh] local active symbols=${localTickers.length}`);
+  if (localTickers.length === 0) {
+    console.log("[metadata-refresh] no local symbols to refresh");
+    return {
+      recordsRead: 0,
+      recordsWritten: 0,
+      metadata: {
+        provider: providerToUse.name,
+        processed: 0,
+        resolved: 0,
+        unresolved: 0,
+        timedOutMs: METADATA_PROVIDER_TIMEOUT_MS,
+      },
+    };
+  }
+  console.log(`[metadata-refresh] calling provider.fetchMetadata provider=${providerToUse.name}`);
 
   let rows: Awaited<ReturnType<MetadataProvider["fetchMetadata"]>>;
   try {
     rows = await withTimeout(
-      metadataProvider.fetchMetadata(localTickers),
+      providerToUse.fetchMetadata(localTickers),
       METADATA_PROVIDER_TIMEOUT_MS,
-      `metadataProvider.fetchMetadata(${metadataProvider.name})`,
+      `metadataProvider.fetchMetadata(${providerToUse.name})`,
     );
   } catch (error) {
     console.error(
-      `[metadata-refresh] failed while fetching metadata provider=${metadataProvider.name} error=${error instanceof Error ? error.message : String(error)}`,
+      `[metadata-refresh] failed while fetching metadata provider=${providerToUse.name} error=${error instanceof Error ? error.message : String(error)}`,
     );
     throw error;
   }
-  console.log(`[metadata-refresh] provider response received provider=${metadataProvider.name} rows=${rows.length}`);
+  console.log(`[metadata-refresh] provider response received provider=${providerToUse.name} rows=${rows.length}`);
 
   if (rows.length === 0) {
-    console.warn(`[metadata-refresh] provider returned empty payload provider=${metadataProvider.name}`);
+    console.warn(`[metadata-refresh] provider returned empty payload provider=${providerToUse.name}`);
   }
 
   const allowedTickers = new Set(localTickers.map((ticker) => normalizeProviderTickerToUsCanonical(ticker)));
@@ -152,7 +169,7 @@ export async function metadataRefreshJob(metadataProvider: MetadataProvider) {
   console.log(`[metadata-refresh] completed successfully processed=${processed} resolved=${resolved} unresolved=${unresolved}`);
   console.log(
     `[metadata-refresh] stats ${JSON.stringify({
-      provider: metadataProvider.name,
+      provider: providerToUse.name,
       totalSymbolsProcessed: processed,
       totalExistingFound,
       totalCreated,
@@ -170,7 +187,7 @@ export async function metadataRefreshJob(metadataProvider: MetadataProvider) {
     recordsRead: rowsToProcess.length,
     recordsWritten: totalCreated + totalUpdated,
     metadata: {
-      provider: metadataProvider.name,
+      provider: providerToUse.name,
       processed,
       resolved,
       unresolved,
