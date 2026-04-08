@@ -6,6 +6,21 @@ function minutesFrom(date: Date | null): number | null {
   return Math.max(0, Math.round(diffMs / 60000));
 }
 
+function resolveAnalysisStatusMessage(analysis: {
+  dataStatus: string;
+  explanationJson: unknown;
+}): string {
+  if (analysis.dataStatus === "OK") return "Listo";
+
+  const explanation = analysis.explanationJson as { missingData?: unknown } | null;
+  const missingData = explanation?.missingData;
+  if (Array.isArray(missingData) && typeof missingData[0] === "string" && missingData[0].trim().length > 0) {
+    return `Warming up: ${missingData[0]}`;
+  }
+
+  return "Warming up: historial insuficiente para score.";
+}
+
 export async function getWatchlistRows() {
   const items = await prisma.watchlistItem.findMany({
     where: { isActive: true },
@@ -46,6 +61,10 @@ export async function getWatchlistRows() {
             tassCategory: latestAnalysis.tassCategory,
             entryWindow: latestAnalysis.entryWindow,
             exitWindow: latestAnalysis.exitWindow,
+            statusMessage: resolveAnalysisStatusMessage({
+              dataStatus: latestAnalysis.dataStatus,
+              explanationJson: latestAnalysis.explanationJson,
+            }),
           }
         : null,
     };

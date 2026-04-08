@@ -29,12 +29,23 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: str
 
 export async function metadataRefreshJob(metadataProvider: MetadataProvider) {
   console.log(`[metadata-refresh] start provider=${metadataProvider.name} timeoutMs=${METADATA_PROVIDER_TIMEOUT_MS}`);
+  const localSymbols = await prisma.symbol.findMany({
+    where: {
+      isActive: true,
+      watchlist: { is: { isActive: true } },
+    },
+    select: { ticker: true },
+    orderBy: { ticker: "asc" },
+  });
+
+  const localTickers = localSymbols.map((symbol) => symbol.ticker);
+  console.log(`[metadata-refresh] local watchlist symbols=${localTickers.length}`);
   console.log(`[metadata-refresh] calling provider.fetchMetadata provider=${metadataProvider.name}`);
 
   let rows: Awaited<ReturnType<MetadataProvider["fetchMetadata"]>>;
   try {
     rows = await withTimeout(
-      metadataProvider.fetchMetadata(),
+      metadataProvider.fetchMetadata(localTickers),
       METADATA_PROVIDER_TIMEOUT_MS,
       `metadataProvider.fetchMetadata(${metadataProvider.name})`,
     );
@@ -50,7 +61,10 @@ export async function metadataRefreshJob(metadataProvider: MetadataProvider) {
     console.warn(`[metadata-refresh] provider returned empty payload provider=${metadataProvider.name}`);
   }
 
-  const rowsToProcess = rows.slice(0, MAX_METADATA_ROWS);
+  const allowedTickers = new Set(localTickers.map((ticker) => normalizeProviderTickerToUsCanonical(ticker)));
+  const rowsToProcess = rows
+    .filter((row) => allowedTickers.has(normalizeProviderTickerToUsCanonical(row.ticker)))
+    .slice(0, MAX_METADATA_ROWS);
   console.log(`[metadata-refresh] symbols to process count=${rowsToProcess.length} (raw=${rows.length})`);
 
   let processed = 0;

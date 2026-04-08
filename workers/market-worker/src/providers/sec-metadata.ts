@@ -5,7 +5,9 @@ const METADATA_PROVIDER_TIMEOUT_MS = Number(process.env.METADATA_PROVIDER_TIMEOU
 export class SecMetadataProvider implements MetadataProvider {
   readonly name = "sec";
 
-  async fetchMetadata(): Promise<NormalizedSymbolMetadata[]> {
+  async fetchMetadata(tickers: string[]): Promise<NormalizedSymbolMetadata[]> {
+    if (tickers.length === 0) return [];
+
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), METADATA_PROVIDER_TIMEOUT_MS);
     const res = await (async () => {
@@ -23,10 +25,14 @@ export class SecMetadataProvider implements MetadataProvider {
       throw new Error(`SEC metadata failed: ${res.status}`);
     }
 
+    const requested = new Set(tickers.map((ticker) => ticker.trim().toUpperCase().replace(/\.US$/, "")));
     const data = (await res.json()) as Record<string, { ticker: string; title: string }>;
-    return Object.values(data).map((item) => ({
-      ticker: item.ticker.toUpperCase(),
-      name: item.title,
-    }));
+
+    return Object.values(data)
+      .map((item) => ({
+        ticker: item.ticker.toUpperCase(),
+        name: item.title,
+      }))
+      .filter((item) => requested.has(item.ticker));
   }
 }

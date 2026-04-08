@@ -4,13 +4,15 @@ import type { QuotesProvider } from "../providers/contracts";
 const RECONCILIATION_LOOKBACK = 40;
 
 export async function quotesRefreshJob(quotesProvider: QuotesProvider) {
-  const symbols = await prisma.symbol.findMany({
+  const watchlistItems = await prisma.watchlistItem.findMany({
     where: {
       isActive: true,
-      universes: { some: { isActive: true } },
+      symbol: { isActive: true },
     },
-    select: { id: true, ticker: true },
+    select: { symbol: { select: { id: true, ticker: true } } },
+    orderBy: { positionOrder: "asc" },
   });
+  const symbols = watchlistItems.map((item) => item.symbol);
 
   const latestBars = await prisma.dailyBar.findMany({
     where: { symbolId: { in: symbols.map((s) => s.id) } },

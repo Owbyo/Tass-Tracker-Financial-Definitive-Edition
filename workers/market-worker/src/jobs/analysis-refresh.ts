@@ -17,10 +17,19 @@ function toBars(rows: DbBar[]) {
 }
 
 export async function analysisRefreshJob() {
+  const watchlistItems = await prisma.watchlistItem.findMany({
+    where: {
+      isActive: true,
+      symbol: { isActive: true },
+    },
+    select: { symbolId: true },
+  });
+  const watchlistSymbolIds = watchlistItems.map((item) => item.symbolId);
+
   const symbols = await prisma.symbol.findMany({
     where: {
       isActive: true,
-      universes: { some: { universe: "CORE", isActive: true } },
+      id: { in: watchlistSymbolIds },
     },
     include: {
       dailyBars: { orderBy: { sessionDate: "asc" }, take: 320 },

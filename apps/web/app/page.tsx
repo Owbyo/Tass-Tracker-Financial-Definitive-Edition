@@ -38,10 +38,10 @@ export default async function HomePage() {
               <td>{row.price ?? "-"}</td>
               <td>{row.changePct ?? "-"}</td>
               <td>{row.quoteFreshnessMinutes === null ? "N/A" : `${row.quoteFreshnessMinutes} min`}</td>
-              <td>{row.analysis?.tassScore ?? "N/A"}</td>
+              <td>{row.analysis?.tassScore ?? (row.analysis ? "Warming up" : "Sin análisis")}</td>
               <td>{row.analysis?.entryWindow ?? "N/A"}</td>
               <td>{row.analysis?.exitWindow ?? "N/A"}</td>
-              <td>{row.analysis?.isPlaceholder ? "Placeholder técnico" : "Listo"}</td>
+              <td>{row.analysis?.statusMessage ?? "Sin análisis todavía"}</td>
             </tr>
           ))}
         </tbody>

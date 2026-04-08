@@ -58,33 +58,53 @@ export class EodhdQuotesProvider implements QuotesProvider {
 export class EodhdMetadataProvider implements MetadataProvider {
   readonly name = "eodhd";
 
-  async fetchMetadata(): Promise<NormalizedSymbolMetadata[]> {
-    const apiKey = requireEodhdApiKey();
-    const url = `https://eodhd.com/api/exchange-symbol-list/US?api_token=${apiKey}&fmt=json`;
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), METADATA_PROVIDER_TIMEOUT_MS);
-    const res = await (async () => {
-      try {
-        return await fetch(url, { signal: controller.signal });
-      } finally {
-        clearTimeout(timeoutId);
-      }
-    })();
+  async fetchMetadata(tickers: string[]): Promise<NormalizedSymbolMetadata[]> {
+    if (tickers.length === 0) return [];
 
-    if (!res.ok) {
-      throw new Error(`EODHD metadata failed: ${res.status}`);
+    const apiKey = requireEodhdApiKey();
+    const canonicalTickers = [...new Set(tickers.map((ticker) => ticker.trim().toUpperCase().replace(/\.US$/, "")).filter(Boolean))];
+    const output: NormalizedSymbolMetadata[] = [];
+
+    for (const ticker of canonicalTickers) {
+      const symbol = `${ticker}.US`;
+      const url = `https://eodhd.com/api/fundamentals/${symbol}?api_token=${apiKey}&fmt=json`;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), METADATA_PROVIDER_TIMEOUT_MS);
+
+      const res = await (async () => {
+        try {
+          return await fetch(url, { signal: controller.signal });
+        } finally {
+          clearTimeout(timeoutId);
+        }
+      })();
+
+      if (!res.ok) {
+        throw new Error(`EODHD fundamentals failed for ${ticker}: ${res.status}`);
+      }
+
+      const payload = (await res.json()) as {
+        General?: {
+          Code?: string;
+          Name?: string;
+          Exchange?: string;
+          Sector?: string;
+          Industry?: string;
+        };
+      };
+
+      const general = payload.General;
+      if (!general?.Code) continue;
+
+      output.push({
+        ticker: general.Code.toUpperCase().replace(/\.US$/, ""),
+        name: general.Name?.trim() || ticker,
+        exchange: "US",
+        sector: general.Sector ?? null,
+        industry: general.Industry ?? null,
+      });
     }
 
-    const data = (await res.json()) as Array<{ Code?: string; Name?: string; Exchange?: string; Sector?: string; Industry?: string }>;
-
-    return data
-      .filter((x) => x.Code && x.Name)
-      .map((x) => ({
-        ticker: (x.Code ?? "").toUpperCase(),
-        name: x.Name ?? "",
-        exchange: x.Exchange ?? null,
-        sector: x.Sector ?? null,
-        industry: x.Industry ?? null,
-      }));
+    return output;
   }
 }
