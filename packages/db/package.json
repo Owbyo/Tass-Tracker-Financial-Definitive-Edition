@@ -1,0 +1,23 @@
+{
+  "name": "@tass/db",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "typecheck": "tsc --noEmit",
+    "test": "echo \"No tests\""
+  },
+  "dependencies": {
+    "@prisma/client": "^6.6.0"
+  },
+  "devDependencies": {
+    "prisma": "^6.6.0",
+    "typescript": "^5.8.3",
+    "tsx": "^4.19.3"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  }
+}
