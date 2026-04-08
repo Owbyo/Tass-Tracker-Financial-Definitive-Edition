@@ -2,8 +2,65 @@ import { NextResponse } from "next/server";
 import { prisma } from "@tass/db";
 import { z } from "zod";
 import { getWatchlistRows } from "@/lib/data";
+import { getWorkerConfig } from "@tass/config";
 
 const createSchema = z.object({ ticker: z.string().min(1) });
+const usTickerSchema = /^[A-Z][A-Z0-9.-]{0,9}$/;
+
+type ResolvedSymbol = {
+  ticker: string;
+  name: string;
+  exchange: string;
+};
+
+function normalizeTickerInput(rawTicker: string): string {
+  return rawTicker.trim().toUpperCase().replace(/\.US$/, "");
+}
+
+async function validateTickerWithStooq(ticker: string): Promise<boolean> {
+  const url = `https://stooq.com/q/l/?s=${ticker.toLowerCase()}.us&i=d`;
+  const response = await fetch(url, { cache: "no-store" });
+  if (!response.ok) {
+    throw new Error(`Stooq fetch failed for ${ticker}: ${response.status}`);
+  }
+
+  const csv = await response.text();
+  const lines = csv.trim().split(/\r?\n/);
+  if (lines.length < 2) return false;
+
+  const [symbol, , , , , , close] = lines[1].split(",");
+  return Boolean(symbol) && close !== "N/D";
+}
+
+async function resolveSymbolFromProvider(ticker: string): Promise<ResolvedSymbol | null> {
+  const config = getWorkerConfig(process.env);
+
+  if (config.quotesProvider === "stooq") {
+    const exists = await validateTickerWithStooq(ticker);
+    return exists ? { ticker, name: ticker, exchange: "US" } : null;
+  }
+
+  const apiKey = process.env.EODHD_API_KEY;
+  if (!apiKey) {
+    throw new Error("Missing EODHD_API_KEY for EODHD provider");
+  }
+
+  const url = `https://eodhd.com/api/search/${ticker}?api_token=${apiKey}&fmt=json&exchange=US`;
+  const response = await fetch(url, { cache: "no-store" });
+  if (!response.ok) {
+    throw new Error(`EODHD symbol search failed for ${ticker}: ${response.status}`);
+  }
+
+  const rows = (await response.json()) as Array<{ Code?: string; Name?: string; Exchange?: string }>;
+  const match = rows.find((row) => (row.Code ?? "").toUpperCase() === ticker);
+  if (!match) return null;
+
+  return {
+    ticker,
+    name: match.Name?.trim() || ticker,
+    exchange: "US",
+  };
+}
 
 export async function GET() {
   const rows = await getWatchlistRows();
@@ -12,11 +69,32 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const body = createSchema.parse(await request.json());
-  const ticker = body.ticker.toUpperCase();
+  const ticker = normalizeTickerInput(body.ticker);
+  if (!usTickerSchema.test(ticker)) {
+    return NextResponse.json({ error: "Ticker inválido. Usa un símbolo US válido (ej: NVDA)." }, { status: 400 });
+  }
 
-  const symbol = await prisma.symbol.findUnique({ where: { ticker } });
+  let symbol = await prisma.symbol.findUnique({ where: { ticker } });
   if (!symbol) {
-    return NextResponse.json({ error: "Symbol not found" }, { status: 404 });
+    try {
+      const resolved = await resolveSymbolFromProvider(ticker);
+      if (!resolved) {
+        return NextResponse.json({ error: `Ticker ${ticker} no existe en el mercado US (provider)` }, { status: 404 });
+      }
+
+      symbol = await prisma.symbol.create({
+        data: {
+          ticker: resolved.ticker,
+          name: resolved.name,
+          exchange: resolved.exchange,
+        },
+      });
+    } catch (error) {
+      return NextResponse.json(
+        { error: `No se pudo validar ${ticker} contra el provider`, detail: error instanceof Error ? error.message : String(error) },
+        { status: 502 },
+      );
+    }
   }
 
   const existing = await prisma.watchlistItem.findUnique({ where: { symbolId: symbol.id } });
