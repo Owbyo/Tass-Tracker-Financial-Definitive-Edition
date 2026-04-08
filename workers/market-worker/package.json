@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx src/index.ts",
+    "prebuild": "npm --prefix ../.. run db:generate",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit",
     "job:quotes": "tsx src/index.ts quotes-refresh",
