@@ -1,0 +1,23 @@
+{
+  "name": "market-worker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit",
+    "job:quotes": "tsx src/index.ts quotes-refresh",
+    "job:analysis": "tsx src/index.ts analysis-refresh",
+    "job:metadata": "tsx src/index.ts metadata-refresh",
+    "test": "tsx --test src/providers/__tests__/*.test.ts src/scoring/__tests__/*.test.ts"
+  },
+  "dependencies": {
+    "@tass/config": "0.1.0",
+    "@tass/db": "0.1.0",
+    "@tass/domain": "0.1.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.3"
+  }
+}
