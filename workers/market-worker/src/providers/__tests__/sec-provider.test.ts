@@ -14,7 +14,7 @@ test("sec provider normalizes metadata payload", async () => {
       { status: 200 },
     )) as typeof fetch;
 
-  const rows = await provider.fetchMetadata();
+  const rows = await provider.fetchMetadata(["AAPL"]);
   assert.equal(rows.length, 1);
   assert.equal(rows[0]?.ticker, "AAPL");
   assert.equal(rows[0]?.name, "Apple Inc.");

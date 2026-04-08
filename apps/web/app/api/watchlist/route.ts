@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { prisma } from "@tass/db";
 import { z } from "zod";
 import { getWatchlistRows } from "@/lib/data";
-import { getWorkerConfig } from "@tass/config";
 
 const createSchema = z.object({ ticker: z.string().min(1) });
 const usTickerSchema = /^[A-Z][A-Z0-9.-]{0,9}$/;
@@ -17,32 +16,10 @@ function normalizeTickerInput(rawTicker: string): string {
   return rawTicker.trim().toUpperCase().replace(/\.US$/, "");
 }
 
-async function validateTickerWithStooq(ticker: string): Promise<boolean> {
-  const url = `https://stooq.com/q/l/?s=${ticker.toLowerCase()}.us&i=d`;
-  const response = await fetch(url, { cache: "no-store" });
-  if (!response.ok) {
-    throw new Error(`Stooq fetch failed for ${ticker}: ${response.status}`);
-  }
-
-  const csv = await response.text();
-  const lines = csv.trim().split(/\r?\n/);
-  if (lines.length < 2) return false;
-
-  const [symbol, , , , , , close] = lines[1].split(",");
-  return Boolean(symbol) && close !== "N/D";
-}
-
 async function resolveSymbolFromProvider(ticker: string): Promise<ResolvedSymbol | null> {
-  const config = getWorkerConfig(process.env);
-
-  if (config.quotesProvider === "stooq") {
-    const exists = await validateTickerWithStooq(ticker);
-    return exists ? { ticker, name: ticker, exchange: "US" } : null;
-  }
-
   const apiKey = process.env.EODHD_API_KEY;
   if (!apiKey) {
-    throw new Error("Missing EODHD_API_KEY for EODHD provider");
+    throw new Error("Missing EODHD_API_KEY for US validation");
   }
 
   const url = `https://eodhd.com/api/search/${ticker}?api_token=${apiKey}&fmt=json&exchange=US`;

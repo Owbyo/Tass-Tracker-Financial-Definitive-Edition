@@ -33,5 +33,5 @@ export interface QuotesProvider {
 
 export interface MetadataProvider {
   readonly name: string;
-  fetchMetadata(): Promise<NormalizedSymbolMetadata[]>;
+  fetchMetadata(tickers: string[]): Promise<NormalizedSymbolMetadata[]>;
 }
