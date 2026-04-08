@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@tass/db";
 import { z } from "zod";
-import { getWatchlistRows } from "../../../lib/data";
+import { getWatchlistRows } from "@/lib/data";
 
 const createSchema = z.object({ ticker: z.string().min(1) });
 

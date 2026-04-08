@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getStockDetail } from "../../../lib/data";
+import { getStockDetail } from "@/lib/data";
 
 export default async function StockDetailPage({ params }: { params: Promise<{ ticker: string }> }) {
   const { ticker } = await params;
