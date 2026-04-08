@@ -1,5 +1,7 @@
 import { getOpsSummary } from "@/lib/data";
 
+export const dynamic = "force-dynamic";
+
 type JobRun = Awaited<ReturnType<typeof getOpsSummary>>["jobRuns"][number];
 
 export default async function OpsPage() {

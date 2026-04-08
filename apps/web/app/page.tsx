@@ -2,6 +2,8 @@ import { WatchlistControls } from "@/components/watchlist-controls";
 import { StockSearch } from "@/components/stock-search";
 import { getWatchlistRows } from "@/lib/data";
 
+export const dynamic = "force-dynamic";
+
 type WatchlistRow = Awaited<ReturnType<typeof getWatchlistRows>>[number];
 
 export default async function HomePage() {
