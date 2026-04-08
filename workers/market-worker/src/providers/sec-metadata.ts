@@ -1,12 +1,23 @@
 import type { MetadataProvider, NormalizedSymbolMetadata } from "./contracts";
 
+const METADATA_PROVIDER_TIMEOUT_MS = Number(process.env.METADATA_PROVIDER_TIMEOUT_MS ?? 30_000);
+
 export class SecMetadataProvider implements MetadataProvider {
   readonly name = "sec";
 
   async fetchMetadata(): Promise<NormalizedSymbolMetadata[]> {
-    const res = await fetch("https://www.sec.gov/files/company_tickers.json", {
-      headers: { "User-Agent": "TassTracker/0.1 personal-use" },
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), METADATA_PROVIDER_TIMEOUT_MS);
+    const res = await (async () => {
+      try {
+        return await fetch("https://www.sec.gov/files/company_tickers.json", {
+          headers: { "User-Agent": "TassTracker/0.1 personal-use" },
+          signal: controller.signal,
+        });
+      } finally {
+        clearTimeout(timeoutId);
+      }
+    })();
 
     if (!res.ok) {
       throw new Error(`SEC metadata failed: ${res.status}`);
