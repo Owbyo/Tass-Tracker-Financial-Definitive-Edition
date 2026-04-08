@@ -5,10 +5,7 @@ type WatchlistItemWithRelations = Prisma.WatchlistItemGetPayload<{
     symbol: {
       include: {
         quoteLatest: true;
-        analyses: {
-          orderBy: { snapshotAt: "desc" };
-          take: 1;
-        };
+        analyses: true;
       };
     };
   };
