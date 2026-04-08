@@ -1,9 +1,9 @@
 import { WatchlistControls } from "../components/watchlist-controls";
 import { StockSearch } from "../components/stock-search";
-import { getWatchlistRows } from "../lib/data";
+import { getWatchlistRows, type WatchlistRow } from "../lib/data";
 
 export default async function HomePage() {
-  const rows = await getWatchlistRows();
+  const rows: WatchlistRow[] = await getWatchlistRows();
 
   return (
     <main>
@@ -28,7 +28,7 @@ export default async function HomePage() {
           </tr>
         </thead>
         <tbody>
-          {rows.map((row) => (
+          {rows.map((row: WatchlistRow) => (
             <tr key={row.watchlistItemId} style={{ borderTop: "1px solid #2a3448" }}>
               <td><a href={`/stocks/${row.ticker}`} style={{ color: "#8bc3ff" }}>{row.ticker}</a></td>
               <td>{row.price ?? "-"}</td>

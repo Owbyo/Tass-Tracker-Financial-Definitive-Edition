@@ -1,4 +1,12 @@
-import { prisma } from "@tass/db";
+import {
+  prisma,
+  type DataStatus,
+  type EntryWindow,
+  type ExitWindow,
+  type JobRun,
+  type Prisma,
+  type TassCategory,
+} from "@tass/db";
 
 function minutesFrom(date: Date | null): number | null {
   if (!date) return null;
@@ -6,8 +14,43 @@ function minutesFrom(date: Date | null): number | null {
   return Math.max(0, Math.round(diffMs / 60000));
 }
 
-export async function getWatchlistRows() {
-  const items = await prisma.watchlistItem.findMany({
+type WatchlistItemWithRelations = Prisma.WatchlistItemGetPayload<{
+  include: {
+    symbol: {
+      include: {
+        quoteLatest: true;
+        analyses: {
+          orderBy: { snapshotAt: "desc" };
+          take: 1;
+        };
+      };
+    };
+  };
+}>;
+
+export type WatchlistRow = {
+  watchlistItemId: string;
+  ticker: string;
+  name: string;
+  positionOrder: number;
+  price: string | null;
+  changePct: string | null;
+  quoteAsOf: Date | null;
+  quoteFreshnessMinutes: number | null;
+  analysis: {
+    snapshotAt: Date;
+    formulaVersion: string;
+    isPlaceholder: boolean;
+    dataStatus: DataStatus;
+    tassScore: string | null;
+    tassCategory: TassCategory | null;
+    entryWindow: EntryWindow | null;
+    exitWindow: ExitWindow | null;
+  } | null;
+};
+
+export async function getWatchlistRows(): Promise<WatchlistRow[]> {
+  const items: WatchlistItemWithRelations[] = await prisma.watchlistItem.findMany({
     where: { isActive: true },
     orderBy: { positionOrder: "asc" },
     include: {
@@ -52,8 +95,19 @@ export async function getWatchlistRows() {
   });
 }
 
-export async function getStockDetail(ticker: string) {
-  const symbol = await prisma.symbol.findUnique({
+type SymbolWithRelations = Prisma.SymbolGetPayload<{
+  include: {
+    quoteLatest: true;
+    analyses: { orderBy: { snapshotAt: "desc" }; take: 10 };
+  };
+}>;
+
+export type StockDetail = SymbolWithRelations & {
+  quoteFreshnessMinutes: number | null;
+};
+
+export async function getStockDetail(ticker: string): Promise<StockDetail | null> {
+  const symbol: SymbolWithRelations | null = await prisma.symbol.findUnique({
     where: { ticker: ticker.toUpperCase() },
     include: {
       quoteLatest: true,
@@ -69,8 +123,26 @@ export async function getStockDetail(ticker: string) {
   };
 }
 
-export async function getOpsSummary() {
-  const [quotes, analysis, jobs] = await Promise.all([
+export type OpsSummary = {
+  quotes: {
+    count: number;
+    asOf: Date | null;
+    freshnessMinutes: number | null;
+  };
+  analysis: {
+    count: number;
+    asOf: Date | null;
+    freshnessMinutes: number | null;
+  };
+  jobRuns: JobRun[];
+};
+
+export async function getOpsSummary(): Promise<OpsSummary> {
+  const [quotes, analysis, jobs]: [
+    { _max: { asOf: Date | null }; _count: { symbolId: number } },
+    { _max: { snapshotAt: Date | null }; _count: { id: number } },
+    JobRun[],
+  ] = await Promise.all([
     prisma.quoteLatest.aggregate({ _max: { asOf: true }, _count: { symbolId: true } }),
     prisma.stockAnalysisSnapshot.aggregate({ _max: { snapshotAt: true }, _count: { id: true } }),
     prisma.jobRun.findMany({ orderBy: { startedAt: "desc" }, take: 20 }),
