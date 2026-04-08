@@ -1,5 +1,7 @@
 import type { MetadataProvider, NormalizedDailyBar, NormalizedQuote, NormalizedSymbolMetadata, QuotesProvider } from "./contracts";
 
+const METADATA_PROVIDER_TIMEOUT_MS = Number(process.env.METADATA_PROVIDER_TIMEOUT_MS ?? 30_000);
+
 function requireEodhdApiKey() {
   const key = process.env.EODHD_API_KEY;
   if (!key) {
@@ -59,7 +61,15 @@ export class EodhdMetadataProvider implements MetadataProvider {
   async fetchMetadata(): Promise<NormalizedSymbolMetadata[]> {
     const apiKey = requireEodhdApiKey();
     const url = `https://eodhd.com/api/exchange-symbol-list/US?api_token=${apiKey}&fmt=json`;
-    const res = await fetch(url);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), METADATA_PROVIDER_TIMEOUT_MS);
+    const res = await (async () => {
+      try {
+        return await fetch(url, { signal: controller.signal });
+      } finally {
+        clearTimeout(timeoutId);
+      }
+    })();
 
     if (!res.ok) {
       throw new Error(`EODHD metadata failed: ${res.status}`);
