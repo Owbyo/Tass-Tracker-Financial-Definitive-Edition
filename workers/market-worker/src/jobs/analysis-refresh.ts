@@ -17,10 +17,23 @@ function toBars(rows: DbBar[]) {
 }
 
 export async function analysisRefreshJob() {
+  return analysisRefreshJobForSymbols();
+}
+
+type AnalysisRefreshOptions = {
+  tickers?: string[];
+};
+
+export async function analysisRefreshJobForSymbols(options: AnalysisRefreshOptions = {}) {
+  const scopedTickers = options.tickers?.map((ticker) => ticker.trim().toUpperCase()).filter(Boolean);
+
   const watchlistItems = await prisma.watchlistItem.findMany({
     where: {
       isActive: true,
-      symbol: { isActive: true },
+      symbol: {
+        isActive: true,
+        ...(scopedTickers?.length ? { ticker: { in: scopedTickers } } : {}),
+      },
     },
     select: { symbolId: true },
   });

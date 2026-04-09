@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@tass/db";
 import { z } from "zod";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { getWatchlistRows } from "@/lib/data";
 
 const createSchema = z.object({ ticker: z.string().min(1) });
 const usTickerSchema = /^[A-Z][A-Z0-9.-]{0,9}$/;
+const execFileAsync = promisify(execFile);
 
 type ResolvedSymbol = {
   ticker: string;
@@ -37,6 +40,20 @@ async function resolveSymbolFromProvider(ticker: string): Promise<ResolvedSymbol
     name: match.Name?.trim() || ticker,
     exchange: "US",
   };
+}
+
+async function runWorkerJob(jobScript: "job:quotes" | "job:analysis", ticker: string) {
+  await execFileAsync("npm", ["run", "-w", "workers/market-worker", jobScript, "--", `--ticker=${ticker}`], {
+    cwd: process.cwd(),
+    env: process.env,
+    timeout: 120_000,
+    maxBuffer: 1024 * 1024 * 8,
+  });
+}
+
+async function bootstrapTickerData(ticker: string) {
+  await runWorkerJob("job:quotes", ticker);
+  await runWorkerJob("job:analysis", ticker);
 }
 
 export async function GET() {
@@ -87,6 +104,19 @@ export async function POST(request: Request) {
     create: { symbolId: symbol.id, positionOrder: (maxOrder._max.positionOrder ?? 0) + 1, isActive: true },
     update: { isActive: true, positionOrder: (maxOrder._max.positionOrder ?? 0) + 1 },
   });
+
+  try {
+    await bootstrapTickerData(ticker);
+  } catch (error) {
+    return NextResponse.json(
+      {
+        action: "added",
+        message: `${ticker} agregado a watchlist, pero bootstrap incompleto`,
+        detail: error instanceof Error ? error.message : String(error),
+      },
+      { status: 202 },
+    );
+  }
 
   return NextResponse.json({ action: "added", message: `${ticker} agregado a watchlist` }, { status: 201 });
 }
